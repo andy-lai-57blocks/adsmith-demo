@@ -23,26 +23,26 @@ export default function DashboardPage() {
     { hour: 0,  sent: 0,  blocked: 0, accepted: 0 },
     { hour: 1,  sent: 0,  blocked: 0, accepted: 0 },
     { hour: 2,  sent: 0,  blocked: 0, accepted: 0 },
-    { hour: 3,  sent: 1,  blocked: 0, accepted: 1 },
-    { hour: 4,  sent: 1,  blocked: 0, accepted: 2 },
-    { hour: 5,  sent: 2,  blocked: 1, accepted: 3 },
-    { hour: 6,  sent: 2,  blocked: 1, accepted: 5 },
-    { hour: 7,  sent: 3,  blocked: 1, accepted: 7 },
-    { hour: 8,  sent: 4,  blocked: 2, accepted: 9 },
-    { hour: 9,  sent: 4,  blocked: 2, accepted: 10 },
-    { hour: 10, sent: 3,  blocked: 1, accepted: 8 },
-    { hour: 11, sent: 2,  blocked: 1, accepted: 6 },
-    { hour: 12, sent: 3,  blocked: 1, accepted: 7 },
-    { hour: 13, sent: 3,  blocked: 1, accepted: 8 },
-    { hour: 14, sent: 4,  blocked: 2, accepted: 10 },
-    { hour: 15, sent: 5,  blocked: 2, accepted: 11 },
-    { hour: 16, sent: 3,  blocked: 1, accepted: 8 },
-    { hour: 17, sent: 2,  blocked: 1, accepted: 6 },
-    { hour: 18, sent: 2,  blocked: 0, accepted: 5 },
-    { hour: 19, sent: 1,  blocked: 0, accepted: 4 },
-    { hour: 20, sent: 1,  blocked: 0, accepted: 3 },
-    { hour: 21, sent: 1,  blocked: 0, accepted: 2 },
-    { hour: 22, sent: 0,  blocked: 0, accepted: 1 },
+    { hour: 3,  sent: 1,  blocked: 0, accepted: 0 },
+    { hour: 4,  sent: 2,  blocked: 0, accepted: 1 },
+    { hour: 5,  sent: 3,  blocked: 0, accepted: 1 },
+    { hour: 6,  sent: 4,  blocked: 1, accepted: 2 },
+    { hour: 7,  sent: 6,  blocked: 1, accepted: 4 },
+    { hour: 8,  sent: 8,  blocked: 2, accepted: 5 },
+    { hour: 9,  sent: 9,  blocked: 2, accepted: 6 },
+    { hour: 10, sent: 6,  blocked: 1, accepted: 5 },
+    { hour: 11, sent: 5,  blocked: 1, accepted: 4 },
+    { hour: 12, sent: 5,  blocked: 0, accepted: 5 },
+    { hour: 13, sent: 6,  blocked: 1, accepted: 5 },
+    { hour: 14, sent: 8,  blocked: 2, accepted: 7 },
+    { hour: 15, sent: 9,  blocked: 2, accepted: 8 },
+    { hour: 16, sent: 7,  blocked: 1, accepted: 5 },
+    { hour: 17, sent: 5,  blocked: 1, accepted: 4 },
+    { hour: 18, sent: 4,  blocked: 0, accepted: 3 },
+    { hour: 19, sent: 3,  blocked: 0, accepted: 2 },
+    { hour: 20, sent: 2,  blocked: 0, accepted: 2 },
+    { hour: 21, sent: 1,  blocked: 0, accepted: 1 },
+    { hour: 22, sent: 1,  blocked: 0, accepted: 0 },
     { hour: 23, sent: 0,  blocked: 0, accepted: 0 },
   ];
   const timeSlots = activityPattern.map(p => ({
@@ -61,18 +61,17 @@ export default function DashboardPage() {
   const now = new Date();
   // Activity feed from actual simulation data with more entries
   const activityFeed = [
-    { time: `${String(14).padStart(2,'0')}:12`, action: 'Accepted', detail: 'TurboCar Insurance — validated, 2 line items, $36.4K spend', status: 'accepted' },
-    { time: `${String(14).padStart(2,'0')}:08`, action: 'Accepted', detail: 'Acme Mattress Co — validated, 5 line items, $36.1K spend', status: 'accepted' },
-    { time: `${String(13).padStart(2,'0')}:55`, action: 'Blocked', detail: 'FreshBloom — 0/2 audience segments match inventory', status: 'blocked' },
-    { time: `${String(13).padStart(2,'0')}:42`, action: 'Sent', detail: 'FreshBloom Organic Foods — raw agent sent without validation', status: 'sent' },
-    { time: `${String(12).padStart(2,'0')}:30`, action: 'Accepted', detail: 'FreshBloom Organic Foods — $35,000 proposal validated', status: 'accepted' },
-    { time: `${String(12).padStart(2,'0')}:15`, action: 'Blocked', detail: 'TurboCar Insurance — volume_exceeds_capacity', status: 'blocked' },
-    { time: `${String(11).padStart(2,'0')}:50`, action: 'Sent', detail: 'TurboCar Insurance — raw agent sent ungrounded proposal', status: 'sent' },
-    { time: `${String(11).padStart(2,'0')}:20`, action: 'Blocked', detail: 'Acme Mattress Co — segment_not_found: premium_sports_fans', status: 'blocked' },
-    { time: `${String(10).padStart(2,'0')}:45`, action: 'Sent', detail: 'Acme Mattress Co — raw agent sent ungrounded proposal', status: 'sent' },
-    { time: `${String(10).padStart(2,'0')}:30`, action: 'Accepted', detail: 'Acme Mattress Co — $50,000 proposal validated', status: 'accepted' },
-    { time: `${String(9).padStart(2,'0')}:15`, action: 'Blocked', detail: 'TurboCar Insurance — segment_not_found: auto_intenders', status: 'blocked' },
-    { time: `${String(9).padStart(2,'0')}:00`, action: 'Accepted', detail: 'FreshBloom Organic Foods — $35,000 proposal validated', status: 'accepted' },
+    { time: '14:12', action: 'Sent', detail: 'TurboCar Insurance — proposal sent to buyer, awaiting order', status: 'sent' },
+    { time: '14:08', action: 'Accepted', detail: 'Acme Mattress Co — buyer accepted, 5 line items confirmed ✅', status: 'accepted' },
+    { time: '13:55', action: 'Blocked', detail: 'FreshBloom Organic Foods — 0/2 audience segments match inventory 🚫', status: 'blocked' },
+    { time: '13:30', action: 'Sent', detail: 'FreshBloom Organic Foods — proposal sent to buyer', status: 'sent' },
+    { time: '12:30', action: 'Accepted', detail: 'TurboCar Insurance — buyer accepted, $66.5K order confirmed ✅', status: 'accepted' },
+    { time: '12:15', action: 'Blocked', detail: 'TurboCar Insurance — volume_exceeds_capacity on video_sports', status: 'blocked' },
+    { time: '11:20', action: 'Blocked', detail: 'Acme Mattress Co — segment_not_found: premium_sports_fans', status: 'blocked' },
+    { time: '10:30', action: 'Accepted', detail: 'Acme Mattress Co — buyer accepted, $36.1K order ✅', status: 'accepted' },
+    { time: '10:00', action: 'Sent', detail: 'Acme Mattress Co — proposal sent to buyer', status: 'sent' },
+    { time: '09:15', action: 'Blocked', detail: 'TurboCar Insurance — segment_not_found: auto_intenders', status: 'blocked' },
+    { time: '09:00', action: 'Sent', detail: 'FreshBloom Organic Foods — proposal sent to buyer', status: 'sent' },
   ];
 
   return (
@@ -100,8 +99,8 @@ export default function DashboardPage() {
         {/* Four Metric Cards */}
         <div className="grid grid-cols-4 gap-4 mb-8">
           <MetricCard label="RFPs Received" value={chartTotalRfps} change="Last 24h" color="indigo" />
-          <MetricCard label="Proposals Sent" value={chartTotalAccepted} change={`${chartTotalBlocked} blocked by AdSmith`} color="blue" />
-          <MetricCard label="Acceptance Rate" value={`${chartAcceptanceRate}%`} change={`${chartTotalAccepted}/${chartTotalRfps} accepted`} color="amber" />
+          <MetricCard label="Proposals Sent" value={chartTotalSent + chartTotalAccepted} change={`${chartTotalBlocked} blocked by AdSmith`} color="blue" />
+          <MetricCard label="Acceptance Rate" value={chartTotalRfps > 0 ? `${Math.round((chartTotalSent + chartTotalAccepted) / chartTotalRfps * 100)}%` : '0%'} change={`${chartTotalSent + chartTotalAccepted}/${chartTotalRfps} sent`} color="green" />
           <MetricCard label="Errors Flagged" value={chartTotalBlocked} change="Caught before send" color="red" />
         </div>
 
@@ -112,7 +111,7 @@ export default function DashboardPage() {
             <BarChart data={timeSlots}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="time" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} allowDecimals={false} domain={[0, 8]} />
+              <YAxis tick={{ fontSize: 11 }} allowDecimals={false} domain={[0, 20]} />
               <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
               <Bar dataKey="sent" fill="#6366f1" name="Sent" stackId="a" radius={[0, 0, 0, 0]} />
               <Bar dataKey="blocked" fill="#ef4444" name="Blocked" stackId="a" radius={[0, 0, 0, 0]} />
@@ -130,7 +129,6 @@ export default function DashboardPage() {
             {activityFeed.map((item, i) => {
               const statusColor = item.status === 'accepted' ? 'bg-emerald-500'
                 : item.status === 'blocked' ? 'bg-red-500'
-                : item.status === 'sent' ? 'bg-indigo-500'
                 : 'bg-indigo-500';
               return (
                 <div key={i} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50">
