@@ -1,5 +1,6 @@
 'use client';
 
+import Logo from '@/components/Logo';
 import { useState } from 'react';
 import Link from 'next/link';
 import { getDemoRFPs } from '@/lib/rfps';
@@ -14,9 +15,7 @@ export default function Home() {
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">A</span>
-            </div>
+            <Logo size={32} />
             <h1 className="text-lg font-semibold text-gray-900">AdSmith</h1>
             <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Test Harness Demo</span>
           </div>
@@ -28,14 +27,38 @@ export default function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Intro */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">RFP Inbox</h2>
-          <p className="text-sm text-gray-500 max-w-2xl">
-            Incoming buyer agent briefs. Select one to simulate the proposal workflow —
-            compare a <span className="text-red-600 font-medium">raw ungrounded agent</span> against{' '}
-            <span className="text-indigo-600 font-medium">AdSmith with commitment validation</span>.
-          </p>
+        {/* Scene 1 — The Problem */}
+        <div className="mb-10">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-red-200 to-red-400" />
+            <span className="text-xs font-semibold tracking-wider text-red-500 uppercase">Scene 1 — The Problem</span>
+            <div className="h-px flex-1 bg-gradient-to-r from-red-400 via-red-200 to-transparent" />
+          </div>
+
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">RFP Inbox</h2>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 max-w-3xl mb-6">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-amber-600 text-lg">!</span>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-amber-800 mb-1">The Problem</h3>
+                <p className="text-sm text-amber-700 leading-relaxed">
+                  A buyer agent sends an RFP. A <strong className="text-amber-900">raw seller agent</strong> generates a proposal —
+                  but it references an audience segment that <strong className="text-amber-900">doesn&apos;t exist</strong> in the publisher&apos;s inventory,
+                  and commits to delivery volume the ad server <strong className="text-amber-900">cannot fulfill</strong>.
+                  Nothing catches it. The broken proposal goes out.
+                </p>
+                <p className="text-sm text-amber-700 mt-2">
+                  Select an RFP below to see the difference between a raw agent and{' '}
+                  <strong className="text-indigo-700">AdSmith with commitment validation</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-400 mb-4">Incoming buyer agent briefs — select one to simulate</p>
         </div>
 
         {/* RFP Cards */}

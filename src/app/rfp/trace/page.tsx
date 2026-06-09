@@ -1,4 +1,5 @@
 'use client';
+import Logo from '@/components/Logo';
 
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
