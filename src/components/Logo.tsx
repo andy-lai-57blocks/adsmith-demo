@@ -1,7 +1,7 @@
-let idCounter = 0;
+import { useId } from 'react';
 
 export default function Logo({ size = 32 }: { size?: number }) {
-  const id = `ad-logo-${++idCounter}`;
+  const id = useId();
 
   return (
     <svg
