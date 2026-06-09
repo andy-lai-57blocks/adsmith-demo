@@ -1,11 +1,12 @@
 'use client';
-import Logo from '@/components/Logo';
 
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { simulateRFP, getRFPById } from '@/lib/rfps';
+import { simulateRFP } from '@/lib/rfps';
 import { RFPWithResult } from '@/lib/types';
+import Logo from '@/components/Logo';
+import SceneBadge from '@/components/SceneBadge';
 
 function ProposalContent() {
   const searchParams = useSearchParams();
@@ -19,55 +20,45 @@ function ProposalContent() {
   }, [rfpId]);
 
   if (!result) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-500">Generating simulation...</div>
-      </div>
-    );
+    return <div className="min-h-screen flex items-center justify-center"><div className="text-gray-500">Generating simulation...</div></div>;
   }
 
   const { rfp, rawProposal, adSmithProposal } = result;
   const rawHasErrors = rawProposal.validationErrors.length > 0;
   const adSmithHasErrors = adSmithProposal.validationErrors.length > 0;
-
-  const formatCurrency = (n: number) => `$${n.toLocaleString()}`;
-  const formatImpressions = (n: number) => n.toLocaleString();
+  const fmt = (n: number) => `$${n.toLocaleString()}`;
+  const imp = (n: number) => n.toLocaleString();
 
   return (
     <>
       <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-sm text-indigo-600 hover:text-indigo-800">
-              ← RFP Inbox
-            </Link>
+            <Link href="/" className="text-sm text-indigo-600 hover:text-indigo-800">← RFP Inbox</Link>
             <span className="text-gray-300">|</span>
-            <div>
+            <div className="flex items-center gap-2">
+              <Logo size={20} />
               <span className="text-sm font-medium text-gray-900">{rfp.advertiser}</span>
-              <span className="text-xs text-gray-400 ml-2">${rfp.budget.toLocaleString()}</span>
+              <span className="text-xs text-gray-400 ml-1">{fmt(rfp.budget)}</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
               <button onClick={() => setMode('side-by-side')} className={`px-3 py-1.5 ${mode === 'side-by-side' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>Side by Side</button>
               <button onClick={() => setMode('raw')} className={`px-3 py-1.5 border-l border-gray-200 ${mode === 'raw' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>Raw Agent</button>
-              <button onClick={() => setMode('adsmith')} className={`px-3 py-1.5 border-l border-gray-200 ${mode === 'adsmith' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>AdSmith</button>
+              <button onClick={() => setMode('adsmith')} className={`px-3 py-1.5 border-l border-gray-200 ${mode === 'adsmith' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>AdSmith</button>
             </div>
             <Link href={`/rfp/trace?id=${rfpId}`} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">Trace View →</Link>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-6">
-        <div className="mb-6">
-          <span className="text-xs font-medium bg-amber-50 text-amber-700 px-2 py-1 rounded-full">
-            Scene 2 — The fix: AdSmith catches the hallucination
-          </span>
-        </div>
+      <main className="max-w-6xl mx-auto px-6 py-6">
+        <SceneBadge num="2" title="The Fix" color="emerald" />
 
         {mode === 'side-by-side' && (
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Raw Agent Panel */}
+            {/* Raw Agent */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="bg-red-50 px-5 py-3 border-b border-red-100">
                 <div className="flex items-center justify-between">
@@ -81,14 +72,14 @@ function ProposalContent() {
                   <div key={i} className="bg-gray-50 rounded-lg p-3">
                     <div className="flex justify-between text-sm mb-1">
                       <span className="text-red-700 font-medium">{li.segmentId}</span>
-                      <span className="text-gray-700">{formatCurrency(li.cpm)} CPM</span>
+                      <span className="text-gray-700">{fmt(li.cpm)} CPM</span>
                     </div>
-                    <div className="text-xs text-gray-500">{li.format} · {formatImpressions(li.impressions)} impressions · {formatCurrency(li.budget)}</div>
+                    <div className="text-xs text-gray-500">{li.format} · {imp(li.impressions)} impressions · {fmt(li.budget)}</div>
                   </div>
                 ))}
                 <div className="flex justify-between text-sm font-medium pt-2 border-t border-gray-100">
                   <span className="text-gray-700">Total</span>
-                  <span className="text-gray-900">{formatImpressions(rawProposal.projectedReach)} impressions @ {formatCurrency(rawProposal.totalCPM)} CPM</span>
+                  <span className="text-gray-900">{imp(rawProposal.projectedReach)} impressions @ {fmt(rawProposal.totalCPM)} CPM</span>
                 </div>
                 {rawHasErrors && (
                   <div className="space-y-2 pt-2">
@@ -110,33 +101,33 @@ function ProposalContent() {
               </div>
             </div>
 
-            {/* AdSmith Panel */}
+            {/* AdSmith */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="bg-green-50 px-5 py-3 border-b border-green-100">
+              <div className="bg-emerald-50 px-5 py-3 border-b border-emerald-100">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-green-800">AdSmith</h3>
-                  <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">{adSmithProposal.status}</span>
+                  <h3 className="text-sm font-semibold text-emerald-800">AdSmith</h3>
+                  <span className="text-xs font-medium text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">{adSmithProposal.status}</span>
                 </div>
-                <p className="text-xs text-green-600 mt-1">Commitment validation — blocked before send</p>
+                <p className="text-xs text-emerald-600 mt-1">Commitment validation — blocked before send</p>
               </div>
               <div className="p-5 space-y-4">
                 {adSmithProposal.lineItems.map((li, i) => (
                   <div key={i} className="bg-gray-50 rounded-lg p-3">
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="text-green-700 font-medium">{li.segmentId}</span>
-                      <span className="text-gray-700">{formatCurrency(li.cpm)} CPM</span>
+                      <span className="text-emerald-700 font-medium">{li.segmentId}</span>
+                      <span className="text-gray-700">{fmt(li.cpm)} CPM</span>
                     </div>
-                    <div className="text-xs text-gray-500">{li.format} · {formatImpressions(li.impressions)} impressions · {formatCurrency(li.budget)}</div>
+                    <div className="text-xs text-gray-500">{li.format} · {imp(li.impressions)} impressions · {fmt(li.budget)}</div>
                   </div>
                 ))}
                 <div className="flex justify-between text-sm font-medium pt-2 border-t border-gray-100">
                   <span className="text-gray-700">Total</span>
-                  <span className="text-gray-900">{formatImpressions(adSmithProposal.projectedReach)} impressions @ {formatCurrency(adSmithProposal.totalCPM)} CPM</span>
+                  <span className="text-gray-900">{adSmithProposal.projectedReach > 0 ? `${imp(adSmithProposal.projectedReach)} impressions @ ${fmt(adSmithProposal.totalCPM)} CPM` : "— no valid line items"}</span>
                 </div>
                 {!adSmithHasErrors && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-                    <p className="text-sm font-semibold text-green-700">✅ All checks passed — proposal validated</p>
-                    <p className="text-xs text-green-600 mt-1">Commitment validation: segment exists, volume within capacity, budget reconciled</p>
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-center">
+                    <p className="text-sm font-semibold text-emerald-700">✅ All checks passed — proposal validated</p>
+                    <p className="text-xs text-emerald-600 mt-1">Commitment validation: segment exists, volume within capacity, budget reconciled</p>
                   </div>
                 )}
               </div>
@@ -152,8 +143,8 @@ function ProposalContent() {
         )}
 
         {mode === 'adsmith' && (
-          <div className="bg-white rounded-xl border border-green-200 shadow-sm overflow-hidden">
-            <div className="bg-green-50 px-5 py-3 border-b border-green-100"><h3 className="text-sm font-semibold text-green-800">AdSmith — Proposal (Validated)</h3></div>
+          <div className="bg-white rounded-xl border border-emerald-200 shadow-sm overflow-hidden">
+            <div className="bg-emerald-50 px-5 py-3 border-b border-emerald-100"><h3 className="text-sm font-semibold text-emerald-800">AdSmith — Proposal (Validated)</h3></div>
             <div className="p-5"><pre className="text-xs text-gray-700 bg-gray-50 p-4 rounded-lg overflow-x-auto">{JSON.stringify(result.adSmithProposal, null, 2)}</pre></div>
           </div>
         )}

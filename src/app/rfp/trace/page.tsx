@@ -1,11 +1,12 @@
 'use client';
-import Logo from '@/components/Logo';
 
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { simulateRFP } from '@/lib/rfps';
 import { AgentTrace } from '@/lib/types';
+import Logo from '@/components/Logo';
+import SceneBadge from '@/components/SceneBadge';
 
 function TraceContent() {
   const searchParams = useSearchParams();
@@ -29,22 +30,21 @@ function TraceContent() {
   return (
     <>
       <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href={`/rfp/proposal?id=${rfpId}`} className="text-sm text-indigo-600 hover:text-indigo-800">← Proposal</Link>
             <span className="text-gray-300">|</span>
-            <h1 className="text-sm font-medium text-gray-900">Agent Trace</h1>
+            <div className="flex items-center gap-2">
+              <Logo size={20} />
+              <h1 className="text-sm font-medium text-gray-900">Agent Trace</h1>
+            </div>
           </div>
           <Link href="/dashboard" className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700">Dashboard →</Link>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-6">
-        <div className="mb-6">
-          <span className="text-xs font-medium bg-purple-50 text-purple-700 px-2 py-1 rounded-full">
-            Scene 3 — Visibility: see exactly where the agent went wrong
-          </span>
-        </div>
+      <main className="max-w-6xl mx-auto px-6 py-6">
+        <SceneBadge num="3" title="Visibility" color="violet" />
 
         <div className="grid md:grid-cols-2 gap-8">
           {/* Raw Agent */}
@@ -81,12 +81,12 @@ function TraceContent() {
 
           {/* AdSmith */}
           <div>
-            <h3 className="text-sm font-semibold text-green-700 mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-500 rounded-full" />AdSmith — Full Visibility
+            <h3 className="text-sm font-semibold text-emerald-700 mb-4 flex items-center gap-2">
+              <span className="w-2 h-2 bg-emerald-500 rounded-full" />AdSmith — Full Visibility
             </h3>
             <div className="space-y-3">
               {agentTrace.stages.map((stage, i) => (
-                <div key={i} className={`bg-white rounded-xl border overflow-hidden ${stage.name === 'Commitment Validation' ? 'border-green-300 ring-1 ring-green-200' : 'border-gray-200'}`}>
+                <div key={i} className={`bg-white rounded-xl border overflow-hidden ${stage.name === 'Commitment Validation' ? 'border-emerald-300 ring-1 ring-emerald-200' : 'border-gray-200'}`}>
                   <button onClick={() => setExpandedStage(expandedStage === i ? null : i)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center gap-3">
                       <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${stage.status === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -95,7 +95,7 @@ function TraceContent() {
                       <span className="text-sm font-medium text-gray-900">{stage.name}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      {stage.name === 'Commitment Validation' && <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">Passed</span>}
+                      {stage.name === 'Commitment Validation' && <span className="text-xs bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full font-medium">Passed</span>}
                       <svg className={`w-4 h-4 text-gray-400 transition-transform ${expandedStage === i ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                     </div>
                   </button>

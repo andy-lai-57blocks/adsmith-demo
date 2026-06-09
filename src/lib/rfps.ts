@@ -2,10 +2,12 @@ import { RFPBrief, RFPWithResult, Proposal, ValidationError, AgentTrace, TraceSt
 import { INVENTORY } from './inventory';
 
 /**
- * Pre-loaded RFPs for the demo.
- * The first one is designed to trigger a hallucination.
+ * Three RFPs, each demonstrating a different failure mode.
+ *
+ * rfp_001 — segment_not_found + volume_exceeds_capacity
+ * rfp_002 — budget constrained, valid but partial match
+ * rfp_003 — no matching inventory at all (empty proposal)
  */
-
 const DEMO_RFPS: RFPBrief[] = [
   {
     id: "rfp_001",
@@ -57,35 +59,123 @@ export function getRFPById(id: string): RFPBrief | undefined {
 }
 
 // ============================================================
-// Agent Simulation
+// Helpers
 // ============================================================
 
-/**
- * Raw agent — intentionally ungrounded. It hallucinates.
- * Generates a proposal without checking against the real inventory catalog.
- */
+function matchSegment(requested: string) {
+  let match = INVENTORY.segments.find((s) => s.name === requested);
+  if (match) return match;
+  const reqTokens = new Set(requested.toLowerCase().split(/[_ ]/));
+  for (const inv of INVENTORY.segments) {
+    const invTokens = new Set(inv.name.toLowerCase().split(/[_ ]/));
+    const overlap = [...reqTokens].filter((t) => invTokens.has(t)).length;
+    if (overlap >= 2) return inv;
+  }
+  return undefined;
+}
+
+function fmt$(n: number) { return `$${n.toLocaleString()}`; }
+function fmtN(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+  return `${n}`;
+}
+
+function pickPlacement(fmt: string, exclude?: string): { id: string; availableImpressions: number } | undefined {
+  const candidates = INVENTORY.placements
+    .filter((p) => p.format === fmt && p.id !== exclude)
+    .sort((a, b) => b.availableImpressions - a.availableImpressions);
+  return candidates[0];
+}
+
+// ============================================================
+// Raw Agent — intentionally ungrounded
+// ============================================================
+
 function simulateRawAgent(rfp: RFPBrief): { proposal: Proposal; trace: AgentTrace } {
+  const matched = rfp.audience.segments.map((s) => ({ requested: s, inv: matchSegment(s) }));
+  const hallucinated = matched.filter((m) => !m.inv).map((m) => m.requested);
+  const valid = matched.filter((m) => m.inv).map((m) => m.inv!);
+
+  // Raw agent always produces line items, even for non-existent segments
+  const lineItems: Array<{
+    segmentId: string; placementId: string; format: string;
+    budget: number; impressions: number; cpm: number;
+  }> = [];
+  const errors: ValidationError[] = [];
+
+  let totalBudget = 0;
+  let totalImps = 0;
+
+  for (const seg of rfp.audience.segments) {
+    const invMatch = matchSegment(seg);
+    const cpm = invMatch ? invMatch.cpmFloor : (seg.includes('premium') ? 32.50 : 22.00);
+    const segId = invMatch ? invMatch.id : seg;
+
+    for (const fmt of rfp.formats) {
+      const placement = pickPlacement(fmt);
+      if (!placement) continue;
+
+      // Raw agent: overallocate — doesn't check capacity
+      const share = Math.ceil(rfp.audience.segments.length * rfp.formats.length);
+      const allocBudget = Math.round(rfp.budget / share);
+      const imps = Math.ceil((allocBudget * 1000) / cpm / 10000) * 10000;
+      const cost = Math.round(imps * cpm / 1000);
+
+      lineItems.push({
+        segmentId: segId,
+        placementId: placement.id,
+        format: fmt,
+        budget: cost,
+        impressions: imps,
+        cpm: Math.round(cpm * 100) / 100,
+      });
+      totalBudget += cost;
+      totalImps += imps;
+
+      // Check if this segment is hallucinated
+      if (!invMatch) {
+        errors.push({
+          stage: "commitment_validation",
+          type: "segment_not_found",
+          detail: `Segment '${seg}' does not exist in the publisher's inventory catalog.`,
+        });
+      }
+
+      // Check if impressions exceed placement capacity
+      if (imps > placement.availableImpressions) {
+        errors.push({
+          stage: "commitment_validation",
+          type: "volume_exceeds_capacity",
+          detail: `Placement '${placement.id}' only has ${fmtN(placement.availableImpressions)} available impressions; proposal commits ${fmtN(imps)}.`,
+        });
+      }
+    }
+  }
+
+  const totalCPM = totalImps > 0 ? Math.round((totalBudget / totalImps) * 1000 * 100) / 100 : 0;
+
   const stages: TraceStage[] = [
     {
       name: "Intent Parsing",
       status: "success",
-      inputs: `RFP from ${rfp.advertiser}\nAudience: ${rfp.audience.description}\nSegments: ${rfp.audience.segments.join(', ')}\nBudget: $${rfp.budget.toLocaleString()}`,
-      reasoning: `Parsed intent: reach ${rfp.audience.description} with ${rfp.formats.join(' and ')} format(s). Budget $${rfp.budget.toLocaleString()}. Mapping to available segments...`,
-      outputs: `Mapped to candidate segments: premium_sports_fans (not in catalog), sports_enthusiasts_25_34 (exists)`,
+      inputs: `RFP from ${rfp.advertiser}\nAudience: ${rfp.audience.description}\nSegments: ${rfp.audience.segments.join(', ')}\nBudget: ${fmt$(rfp.budget)}`,
+      reasoning: `Parsed intent: reach ${rfp.audience.description} with ${rfp.formats.join(' and ')} format(s). Budget ${fmt$(rfp.budget)}. Mapping to available segments...`,
+      outputs: `Mapped to candidate segments: ${rfp.audience.segments.join(', ')}\n[WARNING] Segments ${hallucinated.join(', ')} not verified against catalog.`,
     },
     {
       name: "Inventory Packaging",
       status: "success",
-      inputs: "Candidate segments: premium_sports_fans, sports_enthusiasts_25_34",
-      reasoning: "Selecting placements and pricing. premium_sports_fans has a premium CPM of $32.50. Sports enthusiasts at $18.50. Video placements have higher impact.",
-      outputs: `Proposed: 800K impressions via premium_sports_fans at $32.50 CPM + 200K via sports_enthusiasts_25_34 at $18.50 CPM. Total: $29,500.`,
+      inputs: `Candidate segments: ${rfp.audience.segments.join(', ')}`,
+      reasoning: `Selecting placements and pricing. Assuming all segments are available. Pricing based on audience quality and format.`,
+      outputs: `Proposed: ${lineItems.map((li) => `${fmtN(li.impressions)} via ${li.placementId} at ${fmt$(li.cpm)} CPM`).join(', ')}.\nTotal: ${fmt$(totalBudget)}.`,
     },
     {
       name: "Commitment Validation",
-      status: "failed",
-      inputs: "Line items generated. Ready for validation.",
-      reasoning: "[NO VALIDATION — raw agent sends without checking]",
-      outputs: "VALIDATION SKIPPED — proposal sent without ground truth check.",
+      status: errors.length > 0 ? "failed" : "success",
+      inputs: `Line items generated:\n${lineItems.map((li) => `  ${li.segmentId} → ${li.placementId}: ${fmtN(li.impressions)} imps @ ${fmt$(li.cpm)} CPM = ${fmt$(li.budget)}`).join('\n')}`,
+      reasoning: "[NO VALIDATION — raw agent sends without checking inventory catalog]",
+      outputs: `VALIDATION SKIPPED — proposal sent.\nErrors that would have been caught: ${errors.length} issue(s).`,
     },
     {
       name: "Negotiation",
@@ -103,46 +193,13 @@ function simulateRawAgent(rfp: RFPBrief): { proposal: Proposal; trace: AgentTrac
     },
   ];
 
-  // Raw agent produces a proposal that includes a non-existent segment
-  const lineItems = [
-    {
-      segmentId: "premium_sports_fans",
-      placementId: "pl_video_sports",
-      format: "video",
-      budget: 26000,
-      impressions: 800_000,
-      cpm: 32.50,
-    },
-    {
-      segmentId: "seg_sports_25_34",
-      placementId: "pl_display_banner",
-      format: "display",
-      budget: 3700,
-      impressions: 200_000,
-      cpm: 18.50,
-    },
-  ];
-
-  const errors: ValidationError[] = [
-    {
-      stage: "commitment_validation",
-      type: "segment_not_found",
-      detail: "Segment 'premium_sports_fans' does not exist in the publisher's inventory catalog.",
-    },
-    {
-      stage: "commitment_validation",
-      type: "volume_exceeds_capacity",
-      detail: "Video placement 'pl_video_sports' only has 150,000 available impressions; proposal commits 800,000.",
-    },
-  ];
-
   return {
     proposal: {
       id: `prop_raw_${rfp.id}`,
       rfpId: rfp.id,
       lineItems,
-      totalCPM: 30.50,
-      projectedReach: 1_000_000,
+      totalCPM,
+      projectedReach: totalImps,
       status: "sent",
       validationErrors: errors,
     },
@@ -150,86 +207,181 @@ function simulateRawAgent(rfp: RFPBrief): { proposal: Proposal; trace: AgentTrac
   };
 }
 
-/**
- * AdSmith agent — grounded, with deterministic validation.
- * Uses the inventory catalog to validate before sending.
- */
-function simulateAdSmithAgent(rfp: RFPBrief): { proposal: Proposal; trace: AgentTrace } {
-  // Map requested segments to ones that actually exist
-  const validSegments = rfp.audience.segments
-    .map((s) => INVENTORY.segments.find((inv) => inv.name.includes(s) || s.includes(inv.name)))
-    .filter(Boolean);
+// ============================================================
+// AdSmith Agent — grounded with commitment validation
+// ============================================================
 
-  const stages: TraceStage[] = [
+function simulateAdSmithAgent(rfp: RFPBrief): { proposal: Proposal; trace: AgentTrace } {
+  const matched = rfp.audience.segments
+    .map((s) => ({ requested: s, inv: matchSegment(s) }));
+
+  const valid: Array<{ requested: string; inv: NonNullable<ReturnType<typeof matchSegment>> }> = [];
+  const invalid: string[] = [];
+
+  for (const m of matched) {
+    if (m.inv) {
+      valid.push({ requested: m.requested, inv: m.inv });
+    } else {
+      invalid.push(m.requested);
+    }
+  }
+
+  const lineItems: Array<{
+    segmentId: string; placementId: string; format: string;
+    budget: number; impressions: number; cpm: number;
+  }> = [];
+  let totalImps = 0;
+  let totalSpend = 0;
+  const targetSpend = Math.round(rfp.budget * 0.88);
+
+  // Deep-copy placements so we can deduct capacity
+  const placements = INVENTORY.placements.map((p) => ({ ...p }));
+
+  for (const v of valid) {
+    const seg = v.inv;
+    for (const fmt of rfp.formats) {
+      const fmtPlacements = placements
+        .filter((p) => p.format === fmt)
+        .sort((a, b) => b.availableImpressions - a.availableImpressions);
+
+      for (const pl of fmtPlacements) {
+        if (totalSpend >= targetSpend) break;
+        if (pl.availableImpressions < 10000) continue;
+
+        const maxCostFromCapacity = Math.round((pl.availableImpressions * seg.cpmFloor) / 1000);
+        const budgetRemaining = targetSpend - totalSpend;
+        const maxCost = Math.min(maxCostFromCapacity, budgetRemaining);
+
+        if (maxCost < 1000) continue;
+
+        let imps = Math.floor((maxCost * 1000) / seg.cpmFloor);
+        imps = Math.floor(imps / 1000) * 1000;
+        if (imps < 10000) continue;
+        if (imps > pl.availableImpressions) imps = pl.availableImpressions;
+        imps = Math.floor(imps / 1000) * 1000;
+
+        const cost = Math.round((imps * seg.cpmFloor) / 1000);
+        if (cost < 1000) continue;
+
+        lineItems.push({
+          segmentId: seg.id,
+          placementId: pl.id,
+          format: fmt,
+          budget: cost,
+          impressions: imps,
+          cpm: seg.cpmFloor,
+        });
+        totalSpend += cost;
+        totalImps += imps;
+        pl.availableImpressions -= imps;
+      }
+    }
+  }
+
+  const totalCPM = totalImps > 0 ? Math.round((totalSpend / totalImps) * 1000 * 100) / 100 : 0;
+  const isEmpty = lineItems.length === 0;
+
+  // Build validation summary
+  const checkLines: string[] = [];
+  checkLines.push(`CHECK 1: All segment IDs in catalog?`);
+  if (valid.length > 0) {
+    checkLines.push(`       ✅ ${valid.map((v) => v.inv.name).join(', ')} found.`);
+  }
+  if (invalid.length > 0) {
+    checkLines.push(`       ❌ ${invalid.join(', ')} NOT found — excluded.`);
+  }
+  if (isEmpty) {
+    checkLines.push(`       ❌ No valid segments remain — cannot build proposal.`);
+  }
+
+  checkLines.push(`CHECK 2: Volume within placement capacity?`);
+  if (!isEmpty) {
+    checkLines.push(`       ✅ All ${lineItems.length} line item(s) within available inventory.`);
+  } else {
+    checkLines.push(`       — Skipped (no line items).`);
+  }
+
+  checkLines.push(`CHECK 3: Budget reconciliation?`);
+  if (!isEmpty) {
+    checkLines.push(`       ✅ ${fmt$(totalSpend)} ≤ ${fmt$(rfp.budget)} (${Math.round((totalSpend / rfp.budget) * 100)}% utilization).`);
+  } else {
+    checkLines.push(`       — N/A (no spend).`);
+  }
+  if (!isEmpty) checkLines.push(``);
+  checkLines.push(isEmpty ? `VALIDATION: Blocked — no viable inventory for this RFP.` : `All checks passed. Proposal ready.`);
+
+  const validationSummary = checkLines.join('\n');
+
+  const traceStages: TraceStage[] = [
     {
       name: "Intent Parsing",
       status: "success",
-      inputs: `RFP from ${rfp.advertiser}\nAudience: ${rfp.audience.description}\nSegments: ${rfp.audience.segments.join(', ')}\nBudget: $${rfp.budget.toLocaleString()}`,
-      reasoning: `Grounded parsing against inventory catalog. Found match: sports_enthusiasts_25_34 (reach: 450K, CPM floor: $18.50). Segment 'premium_sports_fans' NOT found in catalog — flagged.`,
-      outputs: `Valid segments: [sports_enthusiasts_25_34]. Invalid: [premium_sports_fans]. Adjusted target to available segments.`,
+      inputs: `RFP from ${rfp.advertiser}\nAudience: ${rfp.audience.description}\nSegments: ${rfp.audience.segments.join(', ')}\nBudget: ${fmt$(rfp.budget)}`,
+      reasoning: `Grounded parsing against inventory catalog.\nValid matches: ${valid.length > 0 ? valid.map((v) => `${v.requested} → ${v.inv.name}`).join(', ') : '(none)'}.\n${invalid.length > 0 ? `Invalid (not in catalog): ${invalid.join(', ')} — flagged.` : ''}${isEmpty ? '\n⚠ All requested segments are invalid — no proposal possible.' : ''}`,
+      outputs: isEmpty
+        ? `No valid segments found. Proposal cannot be generated.`
+        : `Valid segments: [${valid.map((v) => v.inv.name).join(', ')}].\n${invalid.length > 0 ? `Excluded: [${invalid.join(', ')}].` : ''}\nAdjusted target to available inventory.`,
     },
     {
       name: "Inventory Packaging",
-      status: "success",
-      inputs: `Valid segments: sports_enthusiasts_25_34 (reach: 450K). Available placements: video_sports (150K), display_banner (800K).`,
-      reasoning: "Checking placement capacity. Video sports has 150K impressions max. Display banner has 800K. Budget $50K across both formats.",
-      outputs: `Proposed: 150K impressions via video_sports at $18.50 CPM ($2,775) + 350K via display_banner at $12.00 CPM ($4,200). Total: $6,975. Remaining budget: $43,025.`,
+      status: isEmpty ? "failed" : "success",
+      inputs: isEmpty
+        ? "No valid segments to package."
+        : `Valid segments: ${valid.map((v) => `${v.inv.name} (reach: ${fmtN(v.inv.reach)}, CPM floor: ${fmt$(v.inv.cpmFloor)})`).join(', ')}\nAvailable placements: ${INVENTORY.placements.map((p) => `${p.id} (${fmtN(p.availableImpressions)} avail)`).join(', ')}`,
+      reasoning: isEmpty
+        ? "No valid audience segments available. Cannot create line items. Buyer must redefine audience targeting."
+        : `Optimizing allocation across ${rfp.formats.join(' and ')} formats to maximize reach while respecting capacity. Targeting ~88% budget utilization.`,
+      outputs: isEmpty
+        ? "No line items generated. Proposal is empty."
+        : `Proposed ${lineItems.length} line item(s):\n${lineItems.map((li) => `  ${li.segmentId} / ${li.format} / ${li.placementId}: ${fmtN(li.impressions)} imps @ ${fmt$(li.cpm)} CPM = ${fmt$(li.budget)}`).join('\n')}\nTotal: ${fmtN(totalImps)} imps, ${fmt$(totalSpend)} spend (${Math.round((totalSpend / rfp.budget) * 100)}% of budget)`,
     },
     {
       name: "Commitment Validation",
-      status: "success",
-      inputs: "Line items generated. Running checks against ground truth...",
-      reasoning: `CHECK 1: All segment IDs exist in catalog? ✅ sports_enthusiasts_25_34 found.\nCHECK 2: Volume within placement capacity? ✅ 150K ≤ 150K (exact). 350K ≤ 800K.\nCHECK 3: Budget reconciliation? ✅ $6,975 ≤ $50,000.\n\nAll checks passed.`,
-      outputs: "VALIDATION PASSED ✅ — Proposal ready to send.",
+      status: isEmpty ? "failed" : "success",
+      inputs: isEmpty ? "No line items to validate." : `${lineItems.length} line item(s) generated. Running checks against ground truth...`,
+      reasoning: validationSummary,
+      outputs: isEmpty
+        ? `VALIDATION BLOCKED 🚫 — Proposal not sent.\nReason: No audience segments from the RFP match available inventory.\nAction required: Buyer must adjust targeting or explore other publishers.`
+        : `VALIDATION PASSED ✅ — Proposal locked.\n${lineItems.length} valid line item(s) ready for delivery.`,
     },
     {
       name: "Negotiation",
-      status: "success",
-      inputs: "Validated proposal ready. Awaiting buyer response.",
-      reasoning: "Proposal within expected ranges. Ready for negotiation round.",
-      outputs: "Proposal in 'validated' status. Ready for human review.",
+      status: isEmpty ? "failed" : "success",
+      inputs: isEmpty ? "No proposal to negotiate." : "Validated proposal ready. Awaiting buyer response.",
+      reasoning: isEmpty ? "Skipped — no proposal generated." : "Proposal within expected ranges. Ready for negotiation round.",
+      outputs: isEmpty ? "-" : `Proposal in 'validated' status. Spend: ${fmt$(totalSpend)} / ${fmt$(rfp.budget)}.`,
     },
     {
       name: "Feedback",
-      status: "success",
+      status: isEmpty ? "failed" : "success",
       inputs: "—",
       reasoning: "—",
-      outputs: "Pending buyer review.",
+      outputs: isEmpty ? "Blocked — no feedback pending." : "Pending buyer review.",
     },
   ];
 
-  const errors: ValidationError[] = [];
-
+  // For empty proposals, we still need to show the trace but the proposal should reflect blockage
   return {
     proposal: {
       id: `prop_adsmith_${rfp.id}`,
       rfpId: rfp.id,
-      lineItems: [
-        {
-          segmentId: "seg_sports_25_34",
-          placementId: "pl_video_sports",
-          format: "video",
-          budget: 2775,
-          impressions: 150_000,
-          cpm: 18.50,
-        },
-        {
-          segmentId: "seg_sports_25_34",
-          placementId: "pl_display_banner",
-          format: "display",
-          budget: 4200,
-          impressions: 350_000,
-          cpm: 12.00,
-        },
-      ],
-      totalCPM: 14.60,
-      projectedReach: 500_000,
-      status: "validated",
-      validationErrors: errors,
+      lineItems,
+      totalCPM,
+      projectedReach: totalImps,
+      status: isEmpty ? "blocked" : "validated",
+      validationErrors: isEmpty ? [{
+        stage: "commitment_validation",
+        type: "segment_not_found",
+        detail: `No matching inventory for any requested audience segment. Proposal blocked.`,
+      }] : [],
     },
-    trace: { stages },
+    trace: { stages: traceStages },
   };
 }
+
+// ============================================================
+// Public API
+// ============================================================
 
 export function simulateRFP(rfpId: string): RFPWithResult | null {
   const rfp = getRFPById(rfpId);
@@ -247,9 +399,6 @@ export function simulateRFP(rfpId: string): RFPWithResult | null {
   };
 }
 
-/**
- * Simulate a list of RFPs with results (for the dashboard).
- */
 export function simulateAllRFPs(): RFPWithResult[] {
   return DEMO_RFPS.map((rfp) => simulateRFP(rfp.id)!);
 }

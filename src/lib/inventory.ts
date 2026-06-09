@@ -38,11 +38,11 @@ export const INVENTORY: InventoryCatalog = {
     },
   ],
   placements: [
-    { id: "pl_video_homepage", format: "video", availableImpressions: 200_000 },
     { id: "pl_video_sports", format: "video", availableImpressions: 150_000 },
+    { id: "pl_video_homepage", format: "video", availableImpressions: 200_000 },
+    { id: "pl_video_gaming", format: "video", availableImpressions: 300_000 },
     { id: "pl_display_sidebar", format: "display", availableImpressions: 500_000 },
     { id: "pl_display_banner", format: "display", availableImpressions: 800_000 },
-    { id: "pl_video_gaming", format: "video", availableImpressions: 300_000 },
   ],
 };
 

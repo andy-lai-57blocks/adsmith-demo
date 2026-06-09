@@ -1,43 +1,62 @@
 'use client';
 
 import Logo from '@/components/Logo';
+import SceneBadge from '@/components/SceneBadge';
+import AgentThinking from '@/components/AgentThinking';
 import { useState } from 'react';
 import Link from 'next/link';
 import { getDemoRFPs } from '@/lib/rfps';
 
+function Header() {
+  return (
+    <header className="bg-white border-b border-gray-200">
+      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Logo size={32} />
+          <h1 className="text-lg font-semibold text-gray-900">AdSmith</h1>
+          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Test Harness Demo</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700">Dashboard</Link>
+          <span className="text-xs text-gray-400">57Blocks · Confidential</span>
+        </div>
+      </div>
+    </header>
+  );
+}
+
 export default function Home() {
   const rfps = getDemoRFPs();
   const [selectedRfp, setSelectedRfp] = useState<string | null>(null);
+  const [thinking, setThinking] = useState(false);
+  const [targetRfp, setTargetRfp] = useState<string | null>(null);
+
+  const handleRun = () => {
+    if (!selectedRfp) return;
+    setTargetRfp(selectedRfp);
+    setThinking(true);
+  };
+
+  const handleDone = () => {
+    window.location.href = `/rfp/proposal?id=${targetRfp}`;
+  };
+
+  if (thinking) {
+    return <AgentThinking onDone={handleDone} />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Logo size={32} />
-            <h1 className="text-lg font-semibold text-gray-900">AdSmith</h1>
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Test Harness Demo</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700">Dashboard</Link>
-            <span className="text-xs text-gray-400">57Blocks · Confidential</span>
-          </div>
-        </div>
-      </header>
+      <Header />
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-6xl mx-auto px-6 py-8">
         {/* Scene 1 — The Problem */}
         <div className="mb-10">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-red-200 to-red-400" />
-            <span className="text-xs font-semibold tracking-wider text-red-500 uppercase">Scene 1 — The Problem</span>
-            <div className="h-px flex-1 bg-gradient-to-r from-red-400 via-red-200 to-transparent" />
-          </div>
+          <SceneBadge num="1" title="The Problem" color="amber" />
 
           <h2 className="text-2xl font-bold text-gray-900 mb-3">RFP Inbox</h2>
 
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 max-w-3xl mb-6">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                 <span className="text-amber-600 text-lg">!</span>
@@ -51,8 +70,9 @@ export default function Home() {
                   Nothing catches it. The broken proposal goes out.
                 </p>
                 <p className="text-sm text-amber-700 mt-2">
-                  Select an RFP below to see the difference between a raw agent and{' '}
-                  <strong className="text-indigo-700">AdSmith with commitment validation</strong>.
+                  Each RFP below exposes a different failure mode. Select one to see the difference
+                  between a <strong className="text-amber-900">raw agent</strong> (sends blindly)
+                  and <strong className="text-indigo-700">AdSmith with commitment validation</strong> (grounded against inventory).
                 </p>
               </div>
             </div>
@@ -91,9 +111,7 @@ export default function Home() {
                   </div>
                   <div className="flex gap-2">
                     {rfp.formats.map((f) => (
-                      <span key={f} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                        {f}
-                      </span>
+                      <span key={f} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{f}</span>
                     ))}
                   </div>
                   <div className="flex items-center gap-3 text-xs text-gray-500">
@@ -103,9 +121,17 @@ export default function Home() {
 
                 {rfp.id === 'rfp_001' && (
                   <div className="mt-3 pt-3 border-t border-gray-100">
-                    <span className="text-xs text-amber-600 font-medium">
-                      ⚠ This RFP is designed to trigger a hallucination
-                    </span>
+                    <span className="text-xs text-red-500 font-medium">🚫 Segment hallucination</span>
+                  </div>
+                )}
+                {rfp.id === 'rfp_002' && (
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <span className="text-xs text-amber-500 font-medium">⚠ Partial inventory match</span>
+                  </div>
+                )}
+                {rfp.id === 'rfp_003' && (
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <span className="text-xs text-gray-500 font-medium">○ No matching inventory</span>
                   </div>
                 )}
               </div>
@@ -115,23 +141,22 @@ export default function Home() {
 
         {/* Action Button */}
         <div className="mt-8 flex justify-center">
-          <Link
-            href={selectedRfp ? `/rfp/proposal?id=${selectedRfp}` : '#'}
+          <button
+            onClick={handleRun}
+            disabled={!selectedRfp}
             className={`px-8 py-3 rounded-xl text-sm font-semibold transition-all ${
               selectedRfp
-                ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg'
+                ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg cursor-pointer'
                 : 'bg-gray-200 text-gray-400 cursor-not-allowed'
             }`}
-            onClick={(e) => !selectedRfp && e.preventDefault()}
           >
             {selectedRfp ? 'Run Simulation →' : 'Select an RFP to begin'}
-          </Link>
+          </button>
         </div>
 
-        {/* Demo narrative hint */}
         <div className="mt-8 text-center">
           <p className="text-xs text-gray-400">
-            Scene 1 of 3 — The problem: a raw agent hallucinates inventory that doesn&apos;t exist
+            Scene 1 of 4 — The problem: a raw agent hallucinates inventory that doesn&apos;t exist
           </p>
         </div>
       </main>
